@@ -53,6 +53,31 @@ impl QuickUnionUF {
     }
 }
 
+pub fn check_transparency_requirement(n:usize, odds_of_opaque_bit: f32, monte_carlo_trials: usize) -> f32 {
+    /// This checks if a crystal or microscturcture, which is modeled as a NxN 3D structure, will have 'a' clear line of sight through it to transmit a signal.
+    /// To check this, a percolation test is run, for M monte carlo trials, using the quick find algorithm. This reports the percent of trials that had a clear line
+    /// of sight.
+    
+    // Create model
+    //The structure is nxn large, with 2 points added for top and bottom
+    let mut uf = QuickUnionUF::new(n*n + 2);
+
+    let outcome = Vec::with_capacity(monte_carlo_trials);
+
+    // Start a new monte carlo trial
+
+        // Randomly union parts
+
+        // Check if connected
+
+        // Report success or failure
+        // if connected -> outcome[i] = 1
+    
+    // Report total success rate
+
+
+}
+
 use rand::Rng;
 use std::time::{Duration, Instant};
 
@@ -149,6 +174,28 @@ mod tests {
     fn test_connection_find() {
         //should return false, then true
         let mut uf = QuickUnionUF::new(10);
+
+        assert_eq!(uf.connected(0, 9), false);
+
+        uf.union(0, 1);
+        uf.union(0, 2); // creating branches
+        uf.union(1, 4);
+        uf.union(3,7);
+        uf.union(3,1);  // verifying ordering and weighted union
+        uf.union(6,9);
+        uf.union(3,6); // now, 9 should be connected to 0
+
+        assert!(uf.connected(0, 9));
+    }
+
+    #[test]
+    fn test_percolation_optic() {
+        //if we imagine that there is some crystaline or micro structure optic, who has defects in it, which are opaque. At was level of defects can we still likely get a 
+        // clear line of sight? The percolation test will test this.
+
+        //The structure is nxn large
+        let n = 10;
+        let mut uf = QuickUnionUF::new(n*n);
 
         assert_eq!(uf.connected(0, 9), false);
 
