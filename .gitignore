@@ -1,0 +1,9 @@
+lsqf-algorithm/target/CACHEDIR.TAG
+
+lsqf-algorithm/target/*
+
+quick-find/target/*
+quick-find/target/debug/*
+
+*.exe
+*.dll

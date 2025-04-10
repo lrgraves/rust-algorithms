@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use rand::prelude::*;
 
 #[derive(Debug)]
 pub struct QuickUnionUF {
@@ -52,79 +53,106 @@ impl QuickUnionUF {
         }
     }
 }
-
-pub fn check_transparency_requirement(n:usize, odds_of_opaque_bit: f32, monte_carlo_trials: usize) -> f32 {
-    /// This checks if a crystal or microscturcture, which is modeled as a NxN 3D structure, will have 'a' clear line of sight through it to transmit a signal.
-    /// To check this, a percolation test is run, for M monte carlo trials, using the quick find algorithm. This reports the percent of trials that had a clear line
-    /// of sight.
-    
-    // Create model
-    //The structure is nxn large, with 2 points added for top and bottom
-    let mut uf = QuickUnionUF::new(n*n + 2);
-
-    let outcome = Vec::with_capacity(monte_carlo_trials);
-
-    // Start a new monte carlo trial
-
-        // Randomly union parts
-
-        // Check if connected
-
-        // Report success or failure
-        // if connected -> outcome[i] = 1
-    
-    // Report total success rate
-
-
+// Helper function to convert 2D coordinates to 1D index
+fn get_index(row: usize, col: usize, n: usize) -> usize {
+    row * n + col
 }
 
-use rand::Rng;
-use std::time::{Duration, Instant};
-
-// Benchmark function to measure performance against input size
-fn benchmark_union_find(sizes: &[usize], operations_per_size: usize) {
-    println!("\nBenchmarking QuickUnionUF with weighting and path compression");
-    println!(
-        "{:<10} | {:<15} | {:<15} | {:<15}",
-        "Size (n)", "Union Time (µs)", "Find Time (µs)", "Time/log(n)"
-    );
-    println!("{:-<64}", "");
-
-    for &n in sizes {
-        let mut uf = QuickUnionUF::new(n);
-        let mut rng = rand::thread_rng();
-
-        // Measure union operations
-        let union_start = Instant::now();
-        for _ in 0..operations_per_size {
-            let p = rng.gen_range(0..n);
-            let q = rng.gen_range(0..n);
-            uf.union(p, q);
+pub fn check_transparency_requirement(n: usize, odds_of_transparent_bit: f32, monte_carlo_trials: usize) -> f32 {
+    /// This checks if a crystal or microstructure, which is modeled as an NxN 2D structure, will have a clear line of sight through it.
+    /// To check this, a percolation test is run for M monte carlo trials, using the quick find algorithm. 
+    /// This reports the percent of trials that had a clear line of sight.
+    
+    // Track successful percolation trials
+    let mut successful_trials = 0;
+    
+    // Define virtual nodes
+    let top_node = n * n;     // Virtual top node
+    let bottom_node = n * n + 1;  // Virtual bottom node
+    
+    let mut rng = rand::rng();
+    
+    // Start monte carlo trials
+    for _ in 0..monte_carlo_trials {
+        // Create a new Union-Find structure for each trial
+        let mut uf = QuickUnionUF::new(n * n + 2);  // +2 for virtual top and bottom nodes
+        
+        // Create grid of transparent/opaque cells
+        let mut grid = vec![false; n * n];
+        
+        // Randomly assign transparent/opaque values based on probability
+        for i in 0..n*n {
+            grid[i] = rng.random_bool(odds_of_transparent_bit as f64);
         }
-        let union_time = union_start.elapsed();
-
-        // Measure find/connected operations
-        let find_start = Instant::now();
-        for _ in 0..operations_per_size {
-            let p = rng.gen_range(0..n);
-            let q = rng.gen_range(0..n);
-            uf.connected(p, q);
+        
+        // Connect transparent cells to virtual nodes and to adjacent transparent cells
+        for row in 0..n {
+            for col in 0..n {
+                let cell_idx = get_index(row, col, n);
+                
+                // Skip if cell is opaque
+                if !grid[cell_idx] {
+                    continue;
+                }
+                
+                // Connect top row transparent cells to virtual top node
+                if row == 0 {
+                    uf.union(cell_idx, top_node);
+                }
+                
+                // Connect bottom row transparent cells to virtual bottom node
+                if row == n - 1 {
+                    uf.union(cell_idx, bottom_node);
+                }
+                
+                // Connect to adjacent transparent cells (right and down)
+                // Check right neighbor
+                if col < n - 1 && grid[get_index(row, col + 1, n)] {
+                    uf.union(cell_idx, get_index(row, col + 1, n));
+                }
+                
+                // Check down neighbor
+                if row < n - 1 && grid[get_index(row + 1, col, n)] {
+                    uf.union(cell_idx, get_index(row + 1, col, n));
+                }
+            }
         }
-        let find_time = find_start.elapsed();
+        
+        // Check if percolation occurs (top is connected to bottom)
+        if uf.connected(top_node, bottom_node) {
+            successful_trials += 1;
+        }
+    }
+    
+    // Return probability of percolation
+    successful_trials as f32 / monte_carlo_trials as f32
+}
 
-        // Calculate time per log(n) to check if it's logarithmic
-        let log_n = (n as f64).ln();
-        let time_per_log_n = union_time.as_micros() as f64 / log_n;
 
-        println!(
-            "{:<10} | {:<15} | {:<15} | {:<15.2}",
-            n,
-            union_time.as_micros(),
-            find_time.as_micros(),
-            time_per_log_n
-        );
+#[allow(dead_code)]
+fn main() {
+    // Parameters
+    let grid_size = 20;
+    let probability_transparent = 0.59; // Theoretical percolation threshold for 2D square grid is around 0.593
+    let trials = 1000;
+    
+    // Run the percolation test
+    let percolation_probability = check_transparency_requirement(grid_size, probability_transparent, trials);
+    
+    println!("Grid size: {}x{}", grid_size, grid_size);
+    println!("Transparency probability: {:.3}", probability_transparent);
+    println!("Percolation probability after {} trials: {:.4}", trials, percolation_probability);
+    
+    
+    // Optional: Test different transparency probabilities
+    println!("\nTesting different transparency probabilities:");
+    for p in (40..70).step_by(5) {
+        let prob = p as f32 / 100.0;
+        let perc = check_transparency_requirement(grid_size, prob, trials);
+        println!("p = {:.2}: percolation probability = {:.4}", prob, perc);
     }
 }
+
 
 // Simple test for correctness
 fn basic_test() {
@@ -152,17 +180,6 @@ fn basic_test() {
     // Verify all elements are now connected
     println!("All connected: {}", uf.connected(0, 9)); // Should be true
 }
-
-fn main() {
-    // Run basic correctness test
-    basic_test();
-
-    // Run performance benchmark with various input sizes
-    // Uses exponentially increasing sizes to clearly show growth patterns
-    let sizes = [10, 100, 1_000, 10_000, 100_000, 1_000_000];
-    benchmark_union_find(&sizes, 1000);
-}
-
 
 
 #[cfg(test)]
