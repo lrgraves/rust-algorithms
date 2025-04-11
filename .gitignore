@@ -1,6 +1,6 @@
-lsqf-algorithm/target/CACHEDIR.TAG
+polynomial-fit-gaussian-reduction/target/CACHEDIR.TAG
 
-lsqf-algorithm/target/*
+polynomial-fit-gaussian-reduction/target/*
 
 quick-find/target/*
 quick-find/target/debug/*

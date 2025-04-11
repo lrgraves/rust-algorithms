@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "lsqf-algorithm"
+name = "polynomial-fit-gaussian-reduction"
 version = "0.1.0"

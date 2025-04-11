@@ -1,5 +1,5 @@
 [package]
-name = "lsqf-algorithm"
+name = "polynomial-fit-gaussian-reduction"
 version = "0.1.0"
 edition = "2021"
 
