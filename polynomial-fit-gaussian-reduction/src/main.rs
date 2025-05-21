@@ -349,8 +349,32 @@ impl<
     /// # Returns
     /// true if in row echelon form, false otherwise
     fn check_row_echelon_form(&self) -> bool {
-        // Implementation would check if matrix is in row echelon form
-        todo!()
+        // Implementation checks if matrix is in row echelon form
+        let mut prev_lead: Option<usize> = None;
+        let mut seen_zero_row = false;
+        for row in 0..self.rows {
+            let mut lead_idx = None;
+            for col in 0..self.cols {
+                if self.get(row, col).unwrap() != T::default() {
+                    lead_idx = Some(col);
+                    break;
+                }
+            }
+            if let Some(idx) = lead_idx {
+                if seen_zero_row {
+                    return false;
+                }
+                if let Some(prev_idx) = prev_lead {
+                    if idx <= prev_idx {
+                        return false;
+                    }
+                }
+                prev_lead = Some(idx);
+            } else {
+                seen_zero_row = true;
+            }
+        }
+        true
     }
 
     /// Performs back substitution to solve the system
@@ -475,20 +499,39 @@ mod tests {
     #[test]
     fn test_matrix_reduce_ops_reduction() {
         // Use a flat Vec<i32> for the matrix data
+        // Example from book (linear algebra and its applications, example ch 1, eamxple 1, pg 111)
         let mut matrix = Matrix {
-            data: vec![4.0, 5.0, 6.0, 5.0, 8.0, 4.0],
+            data: vec![36., 51., 13., 33., 52., 34., 74., 45., 0., 7., 1.1, 3.],
             rows: 3,
-            cols: 2,
+            cols: 4,
         };
 
         let result = matrix.to_reduced_row_echelon_form().unwrap();
 
         assert_eq!(matrix.get(0, 0).unwrap(), 1.0);
-        assert_eq!(matrix.get(0, 1).unwrap(), 0.5);
-        assert_eq!(matrix.get(1, 0).unwrap(), 0.0);
-        assert_eq!(matrix.get(1, 1).unwrap(), 2.0);
-        assert_eq!(matrix.get(2, 1).unwrap(), 3.0);
-        assert_eq!(matrix.get(2, 0).unwrap(), 0.0);
+        assert_eq!(matrix.get(0, 1).unwrap(), 0.0);
+        assert_eq!(matrix.get(0, 3).unwrap(), 0.27722318361443293);
+        assert_eq!(matrix.get(1, 1).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn test_check_row_echelon_form_true() {
+        let matrix = Matrix {
+            data: vec![1.0, 2.0, 0.0, 3.0],
+            rows: 2,
+            cols: 2,
+        };
+        assert!(matrix.check_row_echelon_form());
+    }
+
+    #[test]
+    fn test_check_row_echelon_form_false() {
+        let matrix = Matrix {
+            data: vec![1.0, 0.0, 1.0, 2.0],
+            rows: 2,
+            cols: 2,
+        };
+        assert!(!matrix.check_row_echelon_form());
     }
 
     #[test]
