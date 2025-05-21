@@ -481,13 +481,13 @@ mod tests {
             cols: 2,
         };
 
-        let result = matrix.to_row_echelon_form().unwrap();
+        let result = matrix.to_reduced_row_echelon_form().unwrap();
 
         assert_eq!(matrix.get(0, 0).unwrap(), 1.0);
-        assert_eq!(matrix.get(0, 1).unwrap(), 0.0);
-        assert_eq!(matrix.get(1, 0).unwrap(), 1.0);
-        assert_eq!(matrix.get(1, 1).unwrap(), 0.0);
-        assert_eq!(matrix.get(2, 1).unwrap(), 0.0);
+        assert_eq!(matrix.get(0, 1).unwrap(), 0.5);
+        assert_eq!(matrix.get(1, 0).unwrap(), 0.0);
+        assert_eq!(matrix.get(1, 1).unwrap(), 2.0);
+        assert_eq!(matrix.get(2, 1).unwrap(), 3.0);
         assert_eq!(matrix.get(2, 0).unwrap(), 0.0);
     }
 
