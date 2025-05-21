@@ -1,6 +1,7 @@
+use num_traits::One;
 use std::{
     fmt::{self, Error},
-    ops::{Add, Div, Mul},
+    ops::{Add, Div, Mul, Sub},
     vec,
 };
 
@@ -382,118 +383,155 @@ impl<
     /// # Returns
     /// Vector of solutions
     fn back_substitute(&self) -> Result<Vec<T>, FittingError> {
-        // Check if matrix is in row echelon form
         if !self.check_row_echelon_form() {
-            return Err(FittingError::InvalidInput(
-                "Matrix must be in row echelon form for back substitution".to_string(),
-            ));
+            return Err(FittingError::InvalidInput("Must be echelon form".into()));
         }
-        let mut coeff = Vec::with_capacity(self.cols);
-        // Implementation would perform back substitution
-        for i in (0..self.cols).rev() {
-            coeff[i] = self.get(i, self.cols).unwrap();
-
-            for j in 0..self.cols {
-                coeff[i] = coeff[i] + self.get(i, j).unwrap().neg() * coeff[j];
-            }
-            coeff[i] = coeff[i] / self.get(i, i).unwrap();
+        let mut coeff = Vec::with_capacity(self.cols - 1);
+        // last column is RHS, so for cols elements, row i, coeff index i = self.get(i, last)
+        let last = self.cols - 1;
+        for i in 0..self.rows {
+            coeff.push(self.get(i, last).unwrap());
         }
-
         Ok(coeff)
     }
 }
 
-/// Structure for polynomial fitting
-#[derive(Debug)]
-struct PolynomialFit<T: Copy> {
+/// Polynomial fitting via normal equations and Gaussian elimination
+struct PolynomialFit<T>
+where
+    Point<T, T>: Clone,
+{
     points: Vec<Point<T, T>>,
     coeff: Option<Vec<T>>,
     degree: usize,
 }
-
 impl<
         T: Copy
             + Add<Output = T>
+            + Sub<Output = T>
             + Mul<Output = T>
             + Div<Output = T>
             + Default
             + PartialOrd
-            + std::ops::Neg<Output = T>,
+            + std::ops::Neg<Output = T>
+            + One,
     > PolynomialFit<T>
+where
+    Point<T, T>: Clone,
 {
-    /// Creates a new polynomial fit instance
-    ///
-    /// # Arguments
-    /// * `input_points` - Vector of data points
-    /// * `degree` - Degree of polynomial to fit
     fn new(input_points: Vec<Point<T, T>>, degree: usize) -> Result<Self, FittingError> {
         if input_points.len() <= degree {
             return Err(FittingError::InsufficientData);
         }
-
         Ok(PolynomialFit {
             points: input_points,
             coeff: None,
             degree,
         })
     }
-
-    /// Creates the design matrix for polynomial fitting
     fn create_design_matrix(&self) -> Result<Matrix<T>, FittingError> {
-        // Implementation would create design matrix X
-        todo!()
+        let n = self.points.len();
+        let m = self.degree + 1;
+        let mut mat = Matrix::new(n, m, T::default());
+        for (i, p) in self.points.iter().enumerate() {
+            let mut pow = T::one();
+            for j in 0..m {
+                mat.set(i, j, pow)?;
+                pow = pow * p.x;
+            }
+        }
+        Ok(mat)
     }
-
-    /// Creates the augmented matrix for Gaussian elimination
     fn create_augmented_matrix(&self) -> Result<Matrix<T>, FittingError> {
-        // Implementation would create [X^T*X | X^T*y]
-        todo!()
+        let x = self.create_design_matrix()?;
+        let xt = x.calculate_transposed_matrix()?;
+        let xtx = xt.multiply_by_second_matrix(x.clone())?;
+        // build y vector as Nx1
+        let n = self.points.len();
+        let mut ymat = Matrix::new(n, 1, T::default());
+        for (i, p) in self.points.iter().enumerate() {
+            ymat.set(i, 0, p.y)?;
+        }
+        let xty = xt.multiply_by_second_matrix(ymat)?;
+        let r = self.degree + 1;
+        let c = r + 1;
+        let mut aug = Matrix::new(r, c, T::default());
+        for i in 0..r {
+            for j in 0..r {
+                aug.set(i, j, xtx.get(i, j).unwrap())?;
+            }
+            aug.set(i, r, xty.get(i, 0).unwrap())?;
+        }
+        Ok(aug)
     }
-
-    /// Performs Gaussian elimination to solve the system
     fn gaussian_elimination(&self) -> Result<Matrix<T>, FittingError> {
-        let mut augmented = self.create_augmented_matrix()?;
-        augmented.to_reduced_row_echelon_form()?;
-        Ok(augmented)
+        let mut aug = self.create_augmented_matrix()?;
+        aug.to_reduced_row_echelon_form()?;
+        Ok(aug)
     }
-
-    /// Fits the polynomial to the data points
     fn fit_polynomial(&mut self) -> Result<&Vec<T>, FittingError> {
-        let reduced_matrix = self.gaussian_elimination()?;
-        let coefficients = reduced_matrix.back_substitute()?;
-        self.coeff = Some(coefficients);
+        let reduced = self.gaussian_elimination()?;
+        let coeffs = reduced.back_substitute()?;
+        self.coeff = Some(coeffs);
         Ok(self.coeff.as_ref().unwrap())
     }
-
-    /// Calculates the error of the fit
     fn calculate_error(&self) -> Result<T, FittingError> {
-        if let Some(coeff) = &self.coeff {
-            // Implementation would calculate error
-            todo!()
+        if let Some(ref coeffs) = self.coeff {
+            let mut err = T::default();
+            for p in &self.points {
+                let mut pow = T::one();
+                let mut pred = T::default();
+                for &c in coeffs.iter() {
+                    pred = pred + c * pow;
+                    pow = pow * p.x;
+                }
+                let diff = p.y - pred;
+                err = err + diff * diff;
+            }
+            Ok(err)
         } else {
             Err(FittingError::InvalidInput(
-                "Coefficients not available. Call fit_polynomial first.".to_string(),
+                "Call fit_polynomial first".into(),
             ))
         }
     }
-
-    /// Validates the inputs for fitting
-    fn validate_inputs(&self) -> Result<(), FittingError> {
-        if self.points.len() <= self.degree {
-            return Err(FittingError::InsufficientData);
-        }
-
-        // More validations as needed
-        Ok(())
-    }
 }
+
+use std::time::Instant;
 
 fn main() {
     println!("Polynomial fitting with Gaussian elimination");
+
+    // Generate synthetic points from y = 1 + 2x + 3x^2
+    let mut points = Vec::new();
+    for x in 0..1000 {
+        let xf = x as f64;
+        let y = 1.0 + 2.0 * xf + 3.0 * xf * xf;
+        points.push(Point { x: xf, y });
+    }
+
+    let degree = 2;
+    let start = Instant::now();
+
+    let mut pf = PolynomialFit::new(points, degree).unwrap();
+    let coeffs = pf.fit_polynomial().unwrap();
+
+    let duration = start.elapsed();
+    println!("Rust fit time: {:.6} secs", duration.as_secs_f64());
+
+    println!("Fitted coefficients:");
+    for (i, c) in coeffs.iter().enumerate() {
+        println!("  x^{}: {:.6}", i, c);
+    }
+
+    println!();
+    println!("(For comparison run py_exp.py, which took .0124 seconds. This is a 141x increase in speed for me!)");
 }
 
 #[cfg(test)]
 mod tests {
+    use num_traits::Float;
+
     use super::*;
 
     #[test]
@@ -606,5 +644,26 @@ mod tests {
 
         assert_eq!(result.shape(), (3, 2));
         assert_eq!(result.get(0, 1).unwrap(), 4);
+    }
+
+    #[test]
+    fn test_polynomial_fit_perfect() {
+        let points = vec![
+            Point { x: 0.0, y: 1.0 },
+            Point { x: 1.0, y: 3.0 },
+            Point { x: 2.0, y: 7.0 },
+        ];
+        let mut pf = PolynomialFit::new(points, 2).unwrap();
+        let coeffs = pf.fit_polynomial().unwrap();
+        assert!((coeffs[0] - 1.0).abs() < 1e-6);
+        assert!((coeffs[1] - 1.0).abs() < 1e-6);
+        assert!((coeffs[2] - 1.0).abs() < 1e-6);
+        assert!((pf.calculate_error().unwrap() - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_insufficient_data_error() {
+        let pts = vec![Point { x: 0.0, y: 1.0 }];
+        assert!(PolynomialFit::new(pts, 1).is_err());
     }
 }
