@@ -9,8 +9,7 @@ pub struct Matrix<T> {
     pub rows: usize,
     pub cols: usize,
 }
-
-impl<T: Copy + Default> Matrix<T> {
+impl<T: Copy + PartialOrd> Matrix<T> {
     /// Creates a new matrix with the specified dimensions
     ///
     /// # Arguments
@@ -24,7 +23,18 @@ impl<T: Copy + Default> Matrix<T> {
             cols,
         }
     }
+}
 
+impl<
+        T: Copy
+            + PartialOrd
+            + Add<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Default
+            + std::ops::Neg<Output = T>,
+    > Matrix<T>
+{
     /// Gets the value at the specified row and column
     ///
     /// # Arguments
@@ -60,9 +70,7 @@ impl<T: Copy + Default> Matrix<T> {
     pub fn shape(&self) -> (usize, usize) {
         (self.rows, self.cols)
     }
-}
 
-impl<T: Copy + Default> Matrix<T> {
     /// This function calculates the transpose of a matrix A. This involves:
     /// 1) Reflecting A over its main diagonal
     /// 2) Write the rows of A as the columns of A_t

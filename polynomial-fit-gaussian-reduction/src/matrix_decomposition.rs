@@ -4,6 +4,7 @@
 
 use crate::errors::FittingError;
 use crate::matrix::Matrix;
+use std::ops::{Add, Div, Mul};
 
 /// LU Decomposition result containing L and U matrices
 #[derive(Debug, Clone)]
@@ -15,7 +16,14 @@ pub struct LUDecomposition<T> {
 
 impl<T> Matrix<T>
 where
-    T: Copy + Default,
+    T: Copy
+        + PartialOrd
+        + Add<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Default
+        + std::ops::Neg<Output = T>
+        + std::ops::Sub<Output = T>,
 {
     /// Performs LU decomposition with partial pivoting
     pub fn lu_decomposition(&self) -> Result<LUDecomposition<T>, FittingError> {
@@ -43,8 +51,20 @@ where
 
         match self.rows {
             2 => {
-                // TODO: Implement 2x2 determinant formula
-                todo!("Implement 2x2 determinant: ad - bc")
+                let a = self.get(0, 0).ok_or_else(|| {
+                    FittingError::InvalidInput("Cannot access matrix element (0,0)".to_string())
+                })?;
+                let b = self.get(0, 1).ok_or_else(|| {
+                    FittingError::InvalidInput("Cannot access matrix element (0,1)".to_string())
+                })?;
+
+                let c = self.get(1, 0).ok_or_else(|| {
+                    FittingError::InvalidInput("Cannot access matrix element (1,0)".to_string())
+                })?;
+                let d = self.get(1, 1).ok_or_else(|| {
+                    FittingError::InvalidInput("Cannot access matrix element (1,1)".to_string())
+                })?;
+                Ok(a * d - b * c)
             }
             _ => {
                 // TODO: Use LU decomposition for larger matrices

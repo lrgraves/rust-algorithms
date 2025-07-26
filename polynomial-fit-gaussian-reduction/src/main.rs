@@ -2,6 +2,7 @@
 
 use std::env;
 use std::io::{self, Write};
+use std::ops::{Add, Div, Mul};
 
 // Import from your library
 use polynomial_fit_gaussian_reduction::prelude::*;
@@ -386,7 +387,19 @@ fn get_example_square_matrix() -> Matrix<f64> {
     }
 }
 
-fn print_matrix<T: std::fmt::Display + Copy + Default>(matrix: &Matrix<T>) {
+fn print_matrix<
+    T: std::fmt::Display
+        + Copy
+        + Default
+        + PartialOrd
+        + Add<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Default
+        + std::ops::Neg<Output = T>,
+>(
+    matrix: &Matrix<T>,
+) {
     let (rows, cols) = matrix.shape();
 
     for row in 0..rows {
